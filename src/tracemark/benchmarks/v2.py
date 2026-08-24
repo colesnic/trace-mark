@@ -17,6 +17,7 @@ from pathlib import Path
 from tracemark.benchmarks.corpora.base import CorpusDocument, load_processed_jsonl
 from tracemark.benchmarks.v2stats import (
     clopper_pearson_upper,
+    exact_binomial_tail,
     min_matches_for_pvalue,
 )
 from tracemark.crypto.fingerprint import derive_fingerprint, expected_bit
