@@ -14,8 +14,8 @@ import random
 import statistics
 import sys
 import time
-from pathlib import Path
 from collections.abc import Callable
+from pathlib import Path
 
 from tracemark.benchmarks.results_io import write_metrics_json, write_rows_csv
 from tracemark.benchmarks.v2 import (
