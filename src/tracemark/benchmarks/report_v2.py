@@ -351,7 +351,10 @@ def run_combined_attacks() -> dict:
             scores = score_candidates(decoded, candidates)
             best = scores[0]
             rates.append(best.match_rate)
-            if decoded.usable_opportunities >= POLICY.minimum_opportunities and best.adjusted_p_value < 0.05:
+            if (
+                decoded.usable_opportunities >= POLICY.minimum_opportunities
+                and best.adjusted_p_value < 0.05
+            ):
                 detected += 1
         rows.append(
             {

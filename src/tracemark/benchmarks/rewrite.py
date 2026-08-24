@@ -12,7 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Sequence
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 from tracemark.providers.base import ProviderAdapter
@@ -41,7 +41,7 @@ _PROMPTS: dict[str, str] = {
 }
 
 
-class RewriteStrength(str, Enum):
+class RewriteStrength(StrEnum):
     LIGHT = "light"
     MODERATE = "moderate"
     HEAVY = "heavy"
