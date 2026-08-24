@@ -10,6 +10,7 @@ from fastapi import FastAPI
 
 from tracemark.api.admin import router as admin_router
 from tracemark.api.detect import router as detect_router
+from tracemark.api.proxy import router as proxy_router
 from tracemark.api.watermark import router as watermark_router
 from tracemark.config import get_settings
 
@@ -40,6 +41,7 @@ app = FastAPI(
 app.include_router(admin_router)
 app.include_router(watermark_router)
 app.include_router(detect_router)
+app.include_router(proxy_router)
 
 
 @app.get("/healthz")

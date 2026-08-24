@@ -14,6 +14,7 @@ pytestmark = pytest.mark.anyio
 
 @pytest.fixture
 async def client():
+    from tracemark.db import models  # noqa: F401
     from tracemark.db.base import Base
 
     async with get_engine().begin() as conn:

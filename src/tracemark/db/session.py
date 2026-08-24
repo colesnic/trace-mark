@@ -62,6 +62,7 @@ async def dispose_engine() -> None:
 
 async def init_db() -> None:
     """Create tables (used by tests and quick local setups; production uses Alembic)."""
+    from tracemark.db import models  # noqa: F401  (register tables)
     from tracemark.db.base import Base
 
     async with get_engine().begin() as conn:

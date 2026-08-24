@@ -22,6 +22,7 @@ pytestmark = pytest.mark.anyio
 
 @pytest.fixture
 async def db_session():
+    from tracemark.db import models  # noqa: F401
     from tracemark.db.base import Base
 
     engine = get_engine()

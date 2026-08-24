@@ -9,7 +9,7 @@ from __future__ import annotations
 import base64
 import secrets
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,10 +33,20 @@ class Settings(BaseSettings):
     # Development-only admin bearer token for admin endpoints.
     admin_token: str | None = None
 
-    # Provider API keys (loaded from environment, never logged).
-    openai_api_key: str | None = None
-    deepseek_api_key: str | None = None
-    anthropic_api_key: str | None = None
+    # Provider API keys (loaded from environment, never logged). Both the
+    # TRACEMARK_-prefixed and bare names are accepted.
+    openai_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("TRACEMARK_OPENAI_API_KEY", "OPENAI_API_KEY"),
+    )
+    deepseek_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("TRACEMARK_DEEPSEEK_API_KEY", "DEEPSEEK_API_KEY"),
+    )
+    anthropic_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("TRACEMARK_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY"),
+    )
 
     # Development-only raw content retention (prompts/responses in the DB).
     retain_raw: bool = False
