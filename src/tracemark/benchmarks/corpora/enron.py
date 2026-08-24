@@ -177,14 +177,21 @@ def _extract_text_body(msg: EmailMessage) -> str | None:
             if part.get_content_type() == "text/plain":
                 payload = part.get_payload(decode=True)
                 if isinstance(payload, bytes):
-                    return payload.decode(
-                        part.get_content_charset() or "utf-8", errors="replace"
-                    )
+                    return _decode_payload(payload, part.get_content_charset())
         return None
     payload = msg.get_payload(decode=True)
     if isinstance(payload, bytes):
-        return payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
+        return _decode_payload(payload, msg.get_content_charset())
     return None
+
+
+def _decode_payload(payload: bytes, charset: str | None) -> str:
+    if charset:
+        try:
+            return payload.decode(charset, errors="replace")
+        except (LookupError, UnicodeDecodeError):
+            pass
+    return payload.decode("utf-8", errors="replace")
 
 
 # --- Enron corpus source ---------------------------------------------------

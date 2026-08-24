@@ -46,8 +46,8 @@ class NewsgroupsSource:
                 if not member.isfile():
                     continue
                 parts = member.name.split("/")
-                # 20_news_bydate/{train,test}/<category>/<msg>
-                if len(parts) < 4 or not parts[-3]:
+                # 20news-bydate-{train,test}/<category>/<msg>
+                if len(parts) < 3 or len(parts) > 4:
                     continue
                 category = parts[-2]
                 fh = tar.extractfile(member)
@@ -60,6 +60,15 @@ class NewsgroupsSource:
                 doc = _clean_newsgroup_post(raw, category, member.name)
                 if doc is not None:
                     yield doc
+
+
+def _decode_payload(payload: bytes, charset: str | None) -> str:
+    if charset:
+        try:
+            return payload.decode(charset, errors="replace")
+        except (LookupError, UnicodeDecodeError):
+            pass
+    return payload.decode("utf-8", errors="replace")
 
 
 def _clean_newsgroup_post(raw: str, category: str, member_name: str) -> CorpusDocument | None:
@@ -75,17 +84,11 @@ def _clean_newsgroup_post(raw: str, category: str, member_name: str) -> CorpusDo
                 if part.get_content_type() == "text/plain":
                     payload = part.get_payload(decode=True)
                     if isinstance(payload, bytes):
-                        body_parts.append(
-                            payload.decode(
-                                part.get_content_charset() or "utf-8", errors="replace"
-                            )
-                        )
+                        body_parts.append(_decode_payload(payload, part.get_content_charset()))
         else:
             payload = msg.get_payload(decode=True)
             if isinstance(payload, bytes):
-                body_parts.append(
-                    payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
-                )
+                body_parts.append(_decode_payload(payload, msg.get_content_charset()))
         body = "\n".join(body_parts)
     else:
         author = pseudonymize(member_name)
