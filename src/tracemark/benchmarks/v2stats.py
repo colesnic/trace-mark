@@ -15,11 +15,11 @@ def exact_binomial_tail(matches: int, total: int) -> float:
     """P(X >= matches) for X ~ Binomial(total, 0.5), exact."""
     if total <= 0:
         return 1.0
-    matches = max(0, min(matches, total))
-    if matches == 0:
-        return 1.0
     if matches > total:
         return 0.0
+    matches = max(0, matches)
+    if matches == 0:
+        return 1.0
     tail = sum(math.comb(total, k) for k in range(matches, total + 1))
     return tail / (1 << total)
 
