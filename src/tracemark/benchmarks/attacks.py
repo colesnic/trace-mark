@@ -64,6 +64,36 @@ def sentence_reorder(text: str, rng: random.Random) -> str:
     return ". ".join(sentences) + "."
 
 
+# Realistic combined edits (M9): real editing is several operations at once.
+def delete20_then_whitespace(text: str, rng: random.Random) -> str:
+    return normalize_whitespace(delete_sentences(text, 0.20, rng))
+
+
+def typography_then_contraction(text: str, rng: random.Random) -> str:
+    return expand_all_contractions(normalize_typography(text))
+
+
+def typography_then_serial_comma(text: str, rng: random.Random) -> str:
+    return remove_serial_commas(normalize_typography(text))
+
+
+def contraction_then_serial_comma(text: str, rng: random.Random) -> str:
+    return remove_serial_commas(expand_all_contractions(text))
+
+
+def lowercase_then_whitespace(text: str, rng: random.Random) -> str:
+    return normalize_whitespace(lowercase_text(text))
+
+
+COMBINED_ATTACKS = {
+    "delete20_whitespace": delete20_then_whitespace,
+    "typography_contraction": typography_then_contraction,
+    "typography_serial_comma": typography_then_serial_comma,
+    "contraction_serial_comma": contraction_then_serial_comma,
+    "lowercase_whitespace": lowercase_then_whitespace,
+}
+
+
 ATTACKS = {
     "original": lambda text, rng: text,
     "delete_10pct": lambda text, rng: delete_sentences(text, 0.10, rng),
@@ -75,4 +105,9 @@ ATTACKS = {
     "whitespace_normalize": lambda text, rng: normalize_whitespace(text),
     "lowercase": lambda text, rng: lowercase_text(text),
     "sentence_reorder": lambda text, rng: sentence_reorder(text, rng),
+    "delete20_whitespace": delete20_then_whitespace,
+    "typography_contraction": typography_then_contraction,
+    "typography_serial_comma": typography_then_serial_comma,
+    "contraction_serial_comma": contraction_then_serial_comma,
+    "lowercase_whitespace": lowercase_then_whitespace,
 }

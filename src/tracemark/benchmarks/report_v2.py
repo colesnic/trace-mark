@@ -332,6 +332,39 @@ def run_canonicalization() -> dict:
     return {"canonicalization": results}
 
 
+def run_combined_attacks() -> dict:
+    from tracemark.benchmarks.attacks import COMBINED_ATTACKS
+    from tracemark.watermark.detector import FingerprintCandidate
+
+    docs = _sample(load_corpus("enron"), 2500, seed=61)
+    docs = [d for d in docs if d.word_count >= 400][:120]
+    candidates = [FingerprintCandidate("alice", None, ALICE.key)]
+    rng = random.Random(12)
+    rows = []
+    for name, fn in COMBINED_ATTACKS.items():
+        rates = []
+        detected = 0
+        for doc in docs:
+            wm = apply_watermark(text=doc.text, fingerprint_key=ALICE.key, policy=POLICY)
+            attacked = fn(wm.text, rng)
+            decoded = decode_document(attacked, POLICY)
+            scores = score_candidates(decoded, candidates)
+            best = scores[0]
+            rates.append(best.match_rate)
+            if decoded.usable_opportunities >= POLICY.minimum_opportunities and best.adjusted_p_value < 0.05:
+                detected += 1
+        rows.append(
+            {
+                "attack": name,
+                "documents": len(docs),
+                "mean_match_rate": statistics.mean(rates),
+                "detected_fraction": detected / max(len(docs), 1),
+            }
+        )
+    write_rows_csv(RESULTS_V2 / "combined_attacks.csv", rows)
+    return {"combined_attacks": rows}
+
+
 def run_all() -> dict:
     started = time.time()
     print("V2 benchmarks running…")
@@ -350,6 +383,7 @@ def run_all() -> dict:
         ("grid", run_grid),
         ("partial_copy", run_partial_copy),
         ("canonicalization", run_canonicalization),
+        ("combined_attacks", run_combined_attacks),
     ]:
         t0 = time.time()
         print(f"[run] {name} …")
