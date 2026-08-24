@@ -34,6 +34,9 @@ def render_report(r: dict[str, Any]) -> str:
     lines.append(_section("5. Candidate-scale analysis"))
     lines.append(_candidate_scale(r))
     lines.append("")
+    lines.append(_section("5b. Document length × candidate population grid"))
+    lines.append(_attribution_grid(r))
+    lines.append("")
     lines.append(_section("6. Null-model calibration"))
     lines.append(_null(r))
     lines.append("")
@@ -403,6 +406,35 @@ def _theoretical(r: dict[str, Any]) -> str:
                "opportunities, which is only achievable on unedited text. Values "
                ">1.0 mean the document is mathematically unattributeable at that "
                "candidate population.")
+    return "\n".join(out)
+
+
+def _attribution_grid(r: dict[str, Any]) -> str:
+    rows = (r.get("grid") or {}).get("grid", [])
+    if not rows:
+        return "_no data_"
+    candidates = sorted({x["candidates"] for x in rows})
+    words = sorted({x["words"] for x in rows})
+    out = [
+        "Attribution accuracy (correct employee, adjusted p < 0.05, ≥20 "
+        "opportunities) by document length and candidate population. "
+        "Large-pool cells use a 40-window subsample.",
+        "",
+        "| words | " + " | ".join(f"N={c}" for c in candidates) + " |",
+        "|-------|" + "|----------" * len(candidates) + "|",
+    ]
+    for w in words:
+        cells = []
+        for c in candidates:
+            row = next((x for x in rows if x["words"] == w and x["candidates"] == c), None)
+            if row is None:
+                cells.append("—")
+            else:
+                cells.append(f"{row['attributed_fraction']:.2f}")
+        out.append(f"| {w} | " + " | ".join(cells) + " |")
+    out.append("")
+    out.append("Insufficient-evidence rate (share below the 20-opportunity threshold) "
+               "is reported separately in Section 4.")
     return "\n".join(out)
 
 
