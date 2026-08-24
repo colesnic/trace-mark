@@ -433,16 +433,18 @@ def analyze_match_dependence(
             indicators.append((m, opp.rule_id))
 
     # Pairwise correlation over a sampled set of opportunity pairs.
-    correlations: list[float] = []
+    # For two independent Bernoulli(0.5) match indicators the agreement rate
+    # is 0.5 and the phi coefficient is 0.
     n = len(indicators)
-    for _ in range(min(sample_pairs, n * n // 2)):
+    pairs = min(sample_pairs, n * n // 2)
+    agree = 0
+    for _ in range(pairs):
         i, j = rng.sample(range(n), 2)
         mi, mj = indicators[i][0], indicators[j][0]
         if mi == mj:
-            correlations.append(1.0)
-        else:
-            correlations.append(0.0)
-    mean_corr = statistics.mean(correlations) if correlations else 0.0
+            agree += 1
+    agreement_rate = agree / pairs if pairs else 0.5
+    phi = 2.0 * agreement_rate - 1.0
 
     # Within-rule bit frequency (should be ~0.5 if balanced).
     by_rule: dict[str, list[int]] = {}
@@ -462,7 +464,7 @@ def analyze_match_dependence(
     return DependenceReport(
         documents=len(docs),
         opportunity_pairs=n,
-        mean_pairwise_correlation=mean_corr,
+        mean_pairwise_correlation=phi,
         within_rule_correlation=within_rule_corr,
         duplicate_ids=dup,
         expected_bit_imbalance=imbalance,
