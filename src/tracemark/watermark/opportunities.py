@@ -24,12 +24,18 @@ def opportunity_id(
     canonical_sentence: str,
     canonical_target: str,
     occurrence_index: int,
+    casefold: bool = False,
 ) -> bytes:
     """Deterministic SHA-256 identifier for an opportunity.
 
     Depends only on canonical (variant-independent) inputs, so it is the
-    same whether bit 0 or bit 1 was embedded.
+    same whether bit 0 or bit 1 was embedded. When ``casefold`` is set the
+    inputs are case-folded before hashing (experimental; see
+    ``watermark.canonicalizers``).
     """
+    if casefold:
+        canonical_sentence = canonical_sentence.casefold()
+        canonical_target = canonical_target.casefold()
     hasher = hashlib.sha256()
     hasher.update(rule_id.encode("utf-8"))
     hasher.update(b"\x00")

@@ -14,7 +14,7 @@ class SafetyTier(StrEnum):
     EXPERIMENTAL = "experimental"
 
 
-STRICT_RULES = ["quotes", "apostrophes", "ellipsis", "dash_style"]
+STRICT_RULES = ["quotes", "apostrophes", "ellipsis", "dash_style", "numeric_range"]
 
 BALANCED_RULES = [
     "quotes",

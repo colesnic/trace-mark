@@ -812,6 +812,102 @@ def _median(values: list) -> float:
     return statistics.median(values) if values else 0.0
 
 
+# --------------------------------------------------------------------------
+# Canonicalization mode experiment (Milestone 8)
+# --------------------------------------------------------------------------
+
+
+@dataclass
+class CanonicalizationModeResult:
+    mode: str
+    documents: int
+    unedited_match_rate: float
+    lowercase_match_rate: float
+    unedited_detected: float
+    lowercase_detected: float
+    collision_duplicate_fraction: float
+    total_ids: int
+    unique_ids: int
+
+
+def benchmark_canonicalization_modes(
+    *,
+    documents: Sequence[CorpusDocument],
+    policy: WatermarkPolicy,
+    max_documents: int = 300,
+    seed: int = 4,
+) -> list[CanonicalizationModeResult]:
+    from tracemark.watermark.canonicalizers import CASE_SENSITIVE, CASEFOLDED
+    from tracemark.watermark.detector import FingerprintCandidate, detect_fingerprint
+
+    docs = documents[:max_documents]
+    alice = make_fingerprint("alice")
+    results: list[CanonicalizationModeResult] = []
+
+    for canonicalizer in (CASE_SENSITIVE, CASEFOLDED):
+        rates_clean: list[float] = []
+        rates_lower: list[float] = []
+        detected_clean = 0
+        detected_lower = 0
+        for doc in docs:
+            wm = apply_watermark(
+                text=doc.text,
+                fingerprint_key=alice.key,
+                policy=policy,
+                canonicalizer=canonicalizer,
+            )
+            # Clean attribution.
+            det = detect_fingerprint(
+                text=wm.text,
+                candidates=[FingerprintCandidate("alice", None, alice.key)],
+                policy=policy,
+            )
+            if det.detected:
+                detected_clean += 1
+            alice_score = next(
+                s for s in det.scores if s.subject_tag == "alice"
+            )
+            rates_clean.append(alice_score.match_rate)
+
+            # Lowercase attack.
+            lowered = wm.text.lower()
+            det_low = detect_fingerprint(
+                text=lowered,
+                candidates=[FingerprintCandidate("alice", None, alice.key)],
+                policy=policy,
+            )
+            if det_low.detected:
+                detected_lower += 1
+            alice_low = next(
+                s for s in det_low.scores if s.subject_tag == "alice"
+            )
+            rates_lower.append(alice_low.match_rate)
+
+        # Collisions across the sample.
+        counts: dict[bytes, int] = {}
+        for doc in docs:
+            decoded = decode_document(doc.text, policy, canonicalizer=canonicalizer)
+            for opp in decoded.opportunities:
+                counts[opp.ident] = counts.get(opp.ident, 0) + 1
+        total = sum(counts.values())
+        unique = len(counts)
+
+        results.append(
+            CanonicalizationModeResult(
+                mode=canonicalizer.version,
+                documents=len(docs),
+                unedited_match_rate=statistics.mean(rates_clean),
+                lowercase_match_rate=statistics.mean(rates_lower),
+                unedited_detected=detected_clean / max(len(docs), 1),
+                lowercase_detected=detected_lower / max(len(docs), 1),
+                collision_duplicate_fraction=(total - unique) / max(total, 1),
+                total_ids=total,
+                unique_ids=unique,
+            )
+        )
+    return results
+
+
 def _pct(values: list, p: float) -> float:
     if not values:
         return 0.0

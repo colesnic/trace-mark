@@ -85,8 +85,13 @@ class DetectionResult:
 def decode_document(
     text: str,
     policy: WatermarkPolicy,
+    canonicalizer=None,
 ) -> DecodedDocument:
     """Parse, find and decode opportunities in ``text`` exactly once."""
+    if canonicalizer is None:
+        from tracemark.watermark.canonicalizers import CASE_SENSITIVE
+
+        canonicalizer = CASE_SENSITIVE
     registry = get_registry()
     doc = get_nlp()(text)
     opportunities = select_non_overlapping_opportunities(
@@ -103,6 +108,7 @@ def decode_document(
             canonical_sentence=opp.canonical_context,
             canonical_target=opp.canonical_target,
             occurrence_index=opp.occurrence_index,
+            casefold=canonicalizer.casefold,
         )
         decoded.append(
             DecodedOpportunity(ident=ident, observed_bit=bit, rule_id=opp.rule_id)

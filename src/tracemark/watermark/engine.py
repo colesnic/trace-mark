@@ -93,6 +93,7 @@ def apply_watermark(
     text: str,
     fingerprint_key: bytes,
     policy: WatermarkPolicy,
+    canonicalizer=None,
 ) -> WatermarkResult:
     """Apply a cryptographically keyed linguistic fingerprint.
 
@@ -104,6 +105,10 @@ def apply_watermark(
     6. Select the variant for each expected bit.
     7. Apply replacements right-to-left to preserve offsets.
     """
+    if canonicalizer is None:
+        from tracemark.watermark.canonicalizers import CASE_SENSITIVE
+
+        canonicalizer = CASE_SENSITIVE
     if not text:
         return WatermarkResult(text=text, opportunities_found=0, transformations_applied=0)
 
@@ -119,6 +124,7 @@ def apply_watermark(
             canonical_sentence=opp.canonical_context,
             canonical_target=opp.canonical_target,
             occurrence_index=opp.occurrence_index,
+            casefold=canonicalizer.casefold,
         )
         bit = expected_bit(fingerprint_key, ident)
         selected.append((opp, opp.encode_variant(bit), bit))

@@ -126,6 +126,7 @@ def get_registry() -> RuleRegistry:
             dash_style,  # noqa: F401
             ellipsis,  # noqa: F401
             markdown,  # noqa: F401
+            numeric_range,  # noqa: F401
             quotes,  # noqa: F401
             serial_comma,  # noqa: F401
         )

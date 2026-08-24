@@ -321,6 +321,17 @@ def asdict(o):
     return _a(o)
 
 
+def run_canonicalization() -> dict:
+    from tracemark.benchmarks.v2 import benchmark_canonicalization_modes
+
+    docs = _sample(load_corpus("enron"), 2000, seed=88) + _sample(
+        load_corpus("hc3"), 1000, seed=89
+    )
+    results = benchmark_canonicalization_modes(documents=docs, policy=POLICY, max_documents=250)
+    write_rows_csv(RESULTS_V2 / "canonicalization_modes.csv", [asdict(r) for r in results])
+    return {"canonicalization": results}
+
+
 def run_all() -> dict:
     started = time.time()
     print("V2 benchmarks running…")
@@ -338,6 +349,7 @@ def run_all() -> dict:
         ("theoretical", run_theoretical),
         ("grid", run_grid),
         ("partial_copy", run_partial_copy),
+        ("canonicalization", run_canonicalization),
     ]:
         t0 = time.time()
         print(f"[run] {name} …")
