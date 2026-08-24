@@ -609,12 +609,15 @@ def attribution_grid(
     cells: list[GridCell] = []
     for words in word_buckets:
         windows: list[tuple[str, str]] = []  # (doc_id, text)
+        per_doc: dict[str, int] = {}
         for doc in documents:
             for w in make_nonoverlapping_windows(doc.text, words):
-                if len(w.split()) >= int(words * 0.8):
-                    windows.append((doc.document_id, w))
-                if len([x for x in windows if x[0] == doc.document_id]) >= max_windows_per_doc:
+                if len(w.split()) < int(words * 0.8):
+                    continue
+                if per_doc.get(doc.document_id, 0) >= max_windows_per_doc:
                     break
+                windows.append((doc.document_id, w))
+                per_doc[doc.document_id] = per_doc.get(doc.document_id, 0) + 1
         if not windows:
             continue
         rng.shuffle(windows)
