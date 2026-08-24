@@ -1,0 +1,2 @@
+{"id": "fin-001", "category": "financial", "temperature": 0.5, "prompt": "Write a short financial commentary on a quarterly report, covering revenue, operating expenses and guidance. Note that the company does not expect the growth rate to continue and will not raise guidance."}
+{"id": "fin-002", "category": "financial", "temperature": 0.5, "prompt": "Write a summary paragraph about a company's balance sheet, cash flow and leverage. Mention that liquidity is adequate and the company will not need to draw on its credit facility."}

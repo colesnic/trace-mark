@@ -1,0 +1,2 @@
+{"id": "legal-001", "category": "legal", "temperature": 0.3, "prompt": "Write a short legal notice informing a counterparty that the agreement, its schedules and its appendices remain in effect, and that the licensee may not assign, transfer or sublicense any rights without prior written consent."}
+{"id": "legal-002", "category": "legal", "temperature": 0.3, "prompt": "Write a paragraph of contract boilerplate about confidentiality, data handling and termination. Use formal, precise language. Include at least one three-item list."}

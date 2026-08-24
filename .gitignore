@@ -25,6 +25,9 @@ tracemark.db
 # Benchmark artifacts
 benchmarks/results/
 
+# Research corpora (never commit raw data)
+.data/
+
 # OS / editor
 .DS_Store
 .idea/
