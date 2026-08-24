@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TraceMark demo</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>TraceMark <span class="sub">forensic watermarking gateway</span></h1>
+    <p class="tagline">
+      Embed a statistical linguistic fingerprint into LLM text and later ask
+      <em>which subject wrote this</em>. Detection is statistical evidence, not proof.
+    </p>
+  </header>
+
+  <main>
+    <section>
+      <h2>1 &middot; Watermark</h2>
+      <div class="row">
+        <label>Subject
+          <select id="subject">
+            {% for s in subjects %}
+            <option value="{{ s.id }}">{{ s.external_ref }} ({{ s.pseudonymous_tag[:8] }}…)</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Model scope
+          <select id="scope">
+            <option value="">none</option>
+            <option>openai</option>
+            <option>anthropic</option>
+            <option>deepseek</option>
+          </select>
+        </label>
+        <label>Policy
+          <select id="policy">
+            <option value="balanced">balanced</option>
+            <option value="strict">strict</option>
+            <option value="experimental">experimental</option>
+          </select>
+        </label>
+      </div>
+      <textarea id="original" rows="8" placeholder="Paste the original LLM output here…">The committee reviewed the annual report, the budget and the forecast. We do not believe the new policy is fair, and we will not accept it. The manager said... it was a red, white and blue flag.</textarea>
+      <div class="actions">
+        <button id="watermark-btn">Watermark</button>
+        <span id="wm-status" class="status"></span>
+      </div>
+      <textarea id="watermarked" rows="8" readonly placeholder="Watermarked text appears here…"></textarea>
+      <details id="transform-details">
+        <summary>Transformations (debug view)</summary>
+        <pre id="transformations"></pre>
+      </details>
+    </section>
+
+    <hr>
+
+    <section>
+      <h2>2 &middot; Detect</h2>
+      <textarea id="suspect" rows="8" placeholder="Paste suspect text, e.g. the watermarked output above…"></textarea>
+      <div class="actions">
+        <button id="detect-btn">Detect</button>
+        <span id="det-status" class="status"></span>
+      </div>
+      <div id="result" class="result hidden"></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      TraceMark cannot detect arbitrary ChatGPT or Claude output. Text must have
+      passed through a TraceMark fingerprint, and heavy rewriting may destroy the
+      signal. Short documents may not contain enough opportunities for reliable attribution.
+    </p>
+  </footer>
+
+  <script>
+    window.TRACEMARK_DEMO = {{ demo_js | tojson }};
+  </script>
+  <script src="/static/demo.js"></script>
+</body>
+</html>
