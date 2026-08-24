@@ -103,11 +103,6 @@ class SerialCommaRule(TransformRule):
     ) -> tuple[spacy.tokens.Token, spacy.tokens.Token | None, spacy.tokens.Token] | None:
         """Return (first_conjunct, comma_directly_before, prev_word)."""
         head = tok.head
-        if head.dep_ != "conj":
-            return None
-        first = head.head
-        if first == head or first.i >= tok.i:
-            return None
 
         # Right-hand conjunct must exist (a real multi-item list).
         right_items = [
@@ -116,8 +111,29 @@ class SerialCommaRule(TransformRule):
         if not right_items:
             return None
 
+        if head.dep_ == "conj":
+            # Chained coordination: "red, white and blue" (white.conj -> red).
+            first = head.head
+        else:
+            # Flat coordination sharing a verb head:
+            # "the budget, the schedule and the risks are..." (all nsubj).
+            siblings = [t for t in tokens if t.head == head.head and t.i < head.i]
+            if not siblings:
+                return None
+            first = siblings[0]
+        if first == head or first.i >= tok.i:
+            return None
+
         # Reject proper-noun conjuncts: avoids "friends, John and Mary".
         if first.pos_ == "PROPN" or head.pos_ == "PROPN" or right_items[0].pos_ == "PROPN":
+            return None
+
+        # Reject clause coordination: a conjunct with its own subject means
+        # these are separate clauses, not a serial-comma list.
+        # ("The dog barked, the cat slept and the bird sang.")
+        if any(c.dep_ == "nsubj" for c in head.children):
+            return None
+        if any(c.dep_ == "nsubj" for c in right_items[0].children):
             return None
 
         # There must be at least one separator comma before the conjunction.

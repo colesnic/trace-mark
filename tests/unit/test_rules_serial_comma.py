@@ -73,6 +73,23 @@ def test_verb_list_accepted(nlp, rule):
     assert opp is not None
 
 
+def test_flat_subject_list_accepted(nlp, rule):
+    assert decode(rule, "The budget, the schedule, and the risks are under review.", nlp) == 1
+
+
+def test_object_list_accepted(nlp, rule):
+    assert decode(rule, "He bought apples, oranges, and bananas.", nlp) == 1
+
+
+def test_clause_list_rejected(nlp, rule):
+    assert len(find(rule, "The dog barked, the cat slept and the bird sang.", nlp)) == 0
+
+
+def test_shared_subject_clause_list_rejected(nlp, rule):
+    text = "We planned the launch, we shipped the feature and we celebrated."
+    assert len(find(rule, text, nlp)) == 0
+
+
 def test_no_comma_before_and_required(nlp, rule):
     # Two items with a comma but no genuine third item after "and".
     opps = find(rule, "The team, and the boss arrived.", nlp)
