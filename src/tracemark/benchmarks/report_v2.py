@@ -415,7 +415,7 @@ def run_all(only: list[str] | None = None) -> dict:
         print(f"[done] {name} ({time.time() - t0:.0f}s)")
     if only is None:
         results["runtime_seconds"] = time.time() - started
-    write_metrics_json(RESULTS_V2 / "all_results.json", results)
+    write_metrics_json(RESULTS_V2 / "all_results.json", _dictify(results))
     _write_report(results)
     print(f"benchmarks complete ({time.time() - started:.0f}s)")
     return results
@@ -452,11 +452,24 @@ def render_existing_report() -> None:
     print("report re-rendered from", path)
 
 
+def _dictify(obj):
+    """Recursively convert dataclasses/lists/dicts to plain JSON-safe dicts."""
+    from dataclasses import asdict, is_dataclass
+
+    if is_dataclass(obj):
+        return {k: _dictify(v) for k, v in asdict(obj).items()}
+    if isinstance(obj, dict):
+        return {k: _dictify(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_dictify(v) for v in obj]
+    return obj
+
+
 def _write_report(results: dict) -> None:
     from tracemark.benchmarks.research_report import render_report
 
     _DOC_DIR.mkdir(parents=True, exist_ok=True)
-    report = render_report(results)
+    report = render_report(_dictify(results))
     (_DOC_DIR / "research-v2-report.md").write_text(report, encoding="utf-8")
     print("report written to docs/research-v2-report.md")
 
