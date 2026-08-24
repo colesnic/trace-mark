@@ -55,6 +55,15 @@ def render_report(r: dict[str, Any]) -> str:
     lines.append(_section("12. Opportunity-ID collisions and match independence"))
     lines.append(_collisions(r))
     lines.append("")
+    lines.append(_section("12b. Canonicalization-mode experiment"))
+    lines.append(_canonicalization(r))
+    lines.append("")
+    lines.append(_section("12c. Combined edit attacks"))
+    lines.append(_combined(r))
+    lines.append("")
+    lines.append(_section("12d. Human vs machine source text"))
+    lines.append(_human_machine(r))
+    lines.append("")
     lines.append(_section("13. Theoretical detection limits"))
     lines.append(_theoretical(r))
     lines.append("")
@@ -391,7 +400,58 @@ def _theoretical(r: dict[str, Any]) -> str:
         out.append(f"| {opps} | " + " | ".join(cells) + " |")
     out.append("")
     out.append("At N=10,000 the required match rate exceeds ~0.85 even at 30 "
-               "opportunities, which is only achievable on unedited text.")
+               "opportunities, which is only achievable on unedited text. Values "
+               ">1.0 mean the document is mathematically unattributeable at that "
+               "candidate population.")
+    return "\n".join(out)
+
+
+def _canonicalization(r: dict[str, Any]) -> str:
+    rows = (r.get("canonicalization") or {}).get("canonicalization", [])
+    if not rows:
+        return "_no data_"
+    out = ["| mode | docs | clean match | lowercased match | clean detected | lower detected | dup-ID fraction |",
+           "|------|------|-------------|------------------|----------------|----------------|-----------------|"]
+    for x in rows:
+        out.append(
+            f"| {x['mode']} | {x['documents']} | {_fmt(x['unedited_match_rate'])} | "
+            f"{_fmt(x['lowercase_match_rate'])} | {_fmt(x['unedited_detected'])} | "
+            f"{_fmt(x['lowercase_detected'])} | {_fmt(x['collision_duplicate_fraction'] * 100, 1)}% |"
+        )
+    out.append("")
+    out.append("If the case-insensitive mode preserves clean detection while raising "
+               "lowercase survival, it is a candidate for production; the cost is a "
+               "higher duplicate-ID rate.")
+    return "\n".join(out)
+
+
+def _combined(r: dict[str, Any]) -> str:
+    rows = (r.get("combined_attacks") or {}).get("combined_attacks", [])
+    if not rows:
+        return "_no data_"
+    out = ["| attack | docs | mean match rate | detected fraction |",
+           "|--------|------|-----------------|-------------------|"]
+    for x in rows:
+        out.append(
+            f"| {x['attack']} | {x['documents']} | {_fmt(x['mean_match_rate'])} | "
+            f"{_fmt(x['detected_fraction'])} |"
+        )
+    return "\n".join(out)
+
+
+def _human_machine(r: dict[str, Any]) -> str:
+    rows = (r.get("human_machine") or {}).get("human_machine", [])
+    if not rows:
+        return "_no data_"
+    out = ["HC3 density by source (human vs ChatGPT answers):", "",
+           "| source | docs | median words | density/100w | median opps | eligible ≥20 |",
+           "|--------|------|--------------|--------------|-------------|--------------|"]
+    for x in rows:
+        out.append(
+            f"| {x['source']} | {x['documents']} | {x['median_words']:.0f} | "
+            f"{_fmt(x['density_per_100'])} | {x['median_opportunities']:.0f} | "
+            f"{_fmt(x['eligible_20'] * 100, 1)}% |"
+        )
     return "\n".join(out)
 
 
