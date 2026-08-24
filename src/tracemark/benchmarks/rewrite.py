@@ -77,7 +77,10 @@ async def llm_rewrite_attack(
 
     completion = await provider.create_chat_completion(request, _client(), Settings())
     output = completion.text.strip()
-    cache.write_text(json.dumps({"model": model, "strength": strength.value, "output": output}), encoding="utf-8")
+    cache.write_text(
+        json.dumps({"model": model, "strength": strength.value, "output": output}),
+        encoding="utf-8",
+    )
     return output
 
 
