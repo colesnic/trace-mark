@@ -18,9 +18,6 @@ jobs:
       - name: Install project
         run: uv sync --group dev
 
-      - name: Download spaCy model
-        run: uv run python -m spacy download en_core_web_sm
-
       - name: Lint
         run: uv run ruff check .
 

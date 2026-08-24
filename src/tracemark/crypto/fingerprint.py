@@ -74,6 +74,13 @@ def derive_subject_tag(*, tenant_secret: bytes, subject_external_ref: str) -> st
     return digest.hex()
 
 
+def derive_key_from_subject_tag(*, tenant_secret: bytes, subject_tag: str) -> bytes:
+    """Employee fingerprint key from a stored pseudonymous tag."""
+    return hkdf(
+        tenant_secret, info=_FINGERPRINT_DOMAIN.encode() + subject_tag.encode("ascii")
+    )
+
+
 def derive_fingerprint(
     *,
     master_key: bytes,
@@ -93,8 +100,8 @@ def derive_fingerprint(
     subject_tag = derive_subject_tag(
         tenant_secret=tenant_secret, subject_external_ref=subject_external_ref
     )
-    employee_key = hkdf(
-        tenant_secret, info=_FINGERPRINT_DOMAIN.encode() + subject_tag.encode("ascii")
+    employee_key = derive_key_from_subject_tag(
+        tenant_secret=tenant_secret, subject_tag=subject_tag
     )
     if model_scope:
         normalized = normalize_model_scope(model_scope)

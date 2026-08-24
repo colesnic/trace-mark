@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import os
 from uuid import UUID
 
 import pytest
+
+# Isolate tests from any on-disk database: use a shared in-memory SQLite.
+os.environ["TRACEMARK_DATABASE_URL"] = (
+    "sqlite+aiosqlite:///file:tracemark_test?mode=memory&cache=shared&uri=true"
+)
 
 from tracemark.crypto.fingerprint import derive_fingerprint
 from tracemark.watermark.policy import WatermarkPolicy
