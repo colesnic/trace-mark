@@ -260,9 +260,10 @@ def run_grid() -> dict:
     long_docs = [d for d in docs if d.word_count >= 500]
     cells = attribution_grid(
         documents=long_docs,
-        word_buckets=[100, 200, 300, 400, 500, 750, 1000, 1500, 2000],
+        word_buckets=[100, 200, 300, 500, 750, 1000, 1500, 2000],
         candidate_counts=[10, 100, 1000, 10000],
         policy=POLICY,
+        max_windows=100,
     )
     write_rows_csv(RESULTS_V2 / "attribution_grid.csv", [asdict(c) for c in cells])
     return {"grid": cells}

@@ -602,7 +602,16 @@ def attribution_grid(
     policy: WatermarkPolicy,
     seed: int = 21,
     max_windows_per_doc: int = 3,
+    max_windows: int = 150,
+    large_pool_windows: int = 40,
 ) -> list[GridCell]:
+    """Words × candidate-count attribution grid.
+
+    Small candidate pools are scored on ``max_windows`` windows; very large
+    pools (>= 5000) are scored on a smaller ``large_pool_windows`` sample to
+    keep the HMAC cost tractable, which is safe because those cells are
+    essentially zero anyway at realistic opportunity counts.
+    """
     alice = make_fingerprint("alice")
     rng = random.Random(seed)
 
@@ -621,21 +630,24 @@ def attribution_grid(
         if not windows:
             continue
         rng.shuffle(windows)
-        windows = windows[:400]
+        windows = windows[:max_windows]
 
         # Watermark + decode ONCE per window; candidate counts only change
         # the scoring population.
-        prepared: list[tuple[str, DecodedDocument]] = []
+        prepared: list[DecodedDocument] = []
         for _doc_id, text in windows:
             wm = apply_watermark(text=text, fingerprint_key=alice.key, policy=policy)
-            prepared.append((text, decode_document(wm.text, policy)))
+            prepared.append(decode_document(wm.text, policy))
 
         for n_cand in candidate_counts:
+            sample = prepared if n_cand < 5000 else prepared[:large_pool_windows]
+            if not sample:
+                continue
             attributed = 0
             insufficient = 0
             false_attr = 0
             evidences: list[float] = []
-            for _text, decoded in prepared:
+            for decoded in sample:
                 candidates = [
                     FingerprintCandidate("alice", None, alice.key),
                     *[
@@ -656,7 +668,7 @@ def attribution_grid(
                     attributed += 1
                 else:
                     false_attr += 1
-            n = len(prepared)
+            n = len(sample)
             cells.append(
                 GridCell(
                     words=words,
