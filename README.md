@@ -270,6 +270,8 @@ TRACEMARK_DATABASE_URL=postgresql+asyncpg://tracemark:tracemark@localhost:5432/t
 - `docs/architecture.md` — component design, data flow, Mermaid diagrams
 - `docs/threat-model.md` — what TraceMark does and does not protect against
 - `docs/phase4-report.md` — the core fingerprinting experiment and results
+- `docs/engineering-report.md` — full engineering report: risks, limitations,
+  benchmarks, results, and the rationale behind every architectural decision
 - `docs/api.md` — full API reference
 
 ## License
