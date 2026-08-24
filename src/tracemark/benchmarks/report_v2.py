@@ -15,6 +15,7 @@ import statistics
 import sys
 import time
 from pathlib import Path
+from typing import Callable
 
 from tracemark.benchmarks.results_io import write_metrics_json, write_rows_csv
 from tracemark.benchmarks.v2 import (
@@ -368,26 +369,41 @@ def run_combined_attacks() -> dict:
     return {"combined_attacks": rows}
 
 
-def run_all() -> dict:
+def run_human_machine() -> dict:
+    from tracemark.benchmarks.v2 import density_by_source
+
+    docs = _sample(load_corpus("hc3"), 2500, seed=91)
+    rows = density_by_source(docs, POLICY)
+    write_rows_csv(
+        RESULTS_V2 / "human_machine_density.csv",
+        [
+            {
+                "corpus": r.corpus,
+                "source": r.source,
+                "documents": r.documents,
+                "median_words": r.median_words,
+                "density_per_100": r.density_per_100,
+                "median_opportunities": r.median_opportunities,
+                "eligible_20": r.eligible_20,
+            }
+            for r in rows
+        ],
+    )
+    return {"human_machine": rows}
+
+
+def run_all(only: list[str] | None = None) -> dict:
+    import json
+
     started = time.time()
     print("V2 benchmarks running…")
     results: dict = {}
-    for name, fn in [
-        ("corpus_stats", run_corpus_stats),
-        ("length", run_length_experiment),
-        ("candidate_scale", run_candidate_scale),
-        ("null_calibration", run_null_calibration),
-        ("false_positives", run_false_positives),
-        ("author_bias", run_author_bias),
-        ("ablation", run_ablation),
-        ("collisions", run_collisions),
-        ("dependence", run_dependence),
-        ("theoretical", run_theoretical),
-        ("grid", run_grid),
-        ("partial_copy", run_partial_copy),
-        ("canonicalization", run_canonicalization),
-        ("combined_attacks", run_combined_attacks),
-    ]:
+    existing = RESULTS_V2 / "all_results.json"
+    if only is not None and existing.exists():
+        # Merge with previously saved results so partial runs accumulate.
+        results = json.loads(existing.read_text(encoding="utf-8"))
+    steps = _STEPS if only is None else [s for s in _STEPS if s[0] in only]
+    for name, fn in steps:
         t0 = time.time()
         print(f"[run] {name} …")
         try:
@@ -396,11 +412,43 @@ def run_all() -> dict:
             print(f"[error] {name}: {exc}")
             results[name] = {"error": str(exc)}
         print(f"[done] {name} ({time.time() - t0:.0f}s)")
-    results["runtime_seconds"] = time.time() - started
+    if only is None:
+        results["runtime_seconds"] = time.time() - started
     write_metrics_json(RESULTS_V2 / "all_results.json", results)
     _write_report(results)
-    print(f"all benchmarks complete ({results['runtime_seconds']:.0f}s)")
+    print(f"benchmarks complete ({time.time() - started:.0f}s)")
     return results
+
+
+_STEPS: list[tuple[str, Callable[[], dict]]] = [
+    ("corpus_stats", run_corpus_stats),
+    ("length", run_length_experiment),
+    ("candidate_scale", run_candidate_scale),
+    ("null_calibration", run_null_calibration),
+    ("false_positives", run_false_positives),
+    ("author_bias", run_author_bias),
+    ("ablation", run_ablation),
+    ("collisions", run_collisions),
+    ("dependence", run_dependence),
+    ("theoretical", run_theoretical),
+    ("grid", run_grid),
+    ("partial_copy", run_partial_copy),
+    ("canonicalization", run_canonicalization),
+    ("combined_attacks", run_combined_attacks),
+    ("human_machine", run_human_machine),
+]
+
+
+def render_existing_report() -> None:
+    """Re-render the report from the saved all_results.json (no re-running)."""
+    import json
+
+    path = RESULTS_V2 / "all_results.json"
+    if not path.exists():
+        raise FileNotFoundError(f"{path} missing — run the benchmarks first")
+    results = json.loads(path.read_text(encoding="utf-8"))
+    _write_report(results)
+    print("report re-rendered from", path)
 
 
 def _write_report(results: dict) -> None:
@@ -413,5 +461,16 @@ def _write_report(results: dict) -> None:
 
 
 if __name__ == "__main__":
-    run_all()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run TraceMark V2 benchmarks")
+    parser.add_argument("--only", default=None, help="comma-separated step names")
+    parser.add_argument("--report", action="store_true", help="only re-render the report")
+    args = parser.parse_args()
+
+    if args.report:
+        render_existing_report()
+    else:
+        only = args.only.split(",") if args.only else None
+        run_all(only=only)
     sys.exit(0)

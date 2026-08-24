@@ -812,6 +812,55 @@ def _median(values: list) -> float:
     return statistics.median(values) if values else 0.0
 
 
+@dataclass
+class SourceDensity:
+    corpus: str
+    source: str
+    documents: int
+    median_words: float
+    density_per_100: float
+    median_opportunities: float
+    eligible_20: float
+
+
+def density_by_source(
+    documents: Sequence[CorpusDocument],
+    policy: WatermarkPolicy,
+) -> list[SourceDensity]:
+    """Compare watermark capacity on human vs machine source text (HC3)."""
+    groups: dict[str, list[CorpusDocument]] = {}
+    for doc in documents:
+        key = doc.human_or_machine or "unknown"
+        groups.setdefault(key, []).append(doc)
+    rows: list[SourceDensity] = []
+    for source, docs in sorted(groups.items()):
+        densities: list[float] = []
+        opp_counts: list[int] = []
+        words: list[int] = []
+        eligible = 0
+        for doc in docs:
+            if doc.word_count < 15:
+                continue
+            decoded = decode_document(doc.text, policy)
+            densities.append(decoded.usable_opportunities / max(doc.word_count, 1) * 100)
+            opp_counts.append(decoded.usable_opportunities)
+            words.append(doc.word_count)
+            if decoded.usable_opportunities >= 20:
+                eligible += 1
+        rows.append(
+            SourceDensity(
+                corpus=documents[0].corpus if documents else "",
+                source=source,
+                documents=len(docs),
+                median_words=_median(words),
+                density_per_100=_median(densities),
+                median_opportunities=_median(opp_counts),
+                eligible_20=eligible / max(len(docs), 1),
+            )
+        )
+    return rows
+
+
 # --------------------------------------------------------------------------
 # Canonicalization mode experiment (Milestone 8)
 # --------------------------------------------------------------------------
