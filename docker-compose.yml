@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tracemark-postgres
+    environment:
+      POSTGRES_USER: tracemark
+      POSTGRES_PASSWORD: tracemark
+      POSTGRES_DB: tracemark
+    ports:
+      - "5432:5432"
+    volumes:
+      - tracemark_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tracemark"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  tracemark_pgdata:
