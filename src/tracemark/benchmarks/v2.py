@@ -631,7 +631,7 @@ def attribution_grid(
             insufficient = 0
             false_attr = 0
             evidences: list[float] = []
-            for text, decoded in prepared:
+            for _text, decoded in prepared:
                 candidates = [
                     FingerprintCandidate("alice", None, alice.key),
                     *[
