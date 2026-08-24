@@ -39,6 +39,15 @@ def test_clopper_pearson_upper_zero_hits():
     assert 0.0 < upper < 0.05
 
 
+def test_clopper_pearson_upper_known_value():
+    # P(X <= 0 | Bin(100, p)) = 0.05 => p = 1 - 0.95^(1/100) ≈ 0.00051
+    assert clopper_pearson_upper(0, 100, alpha=0.05) == pytest.approx(
+        1 - 0.95 ** (1 / 100), abs=1e-4
+    )
+    # k=6, n=4000: the upper one-sided bound is ≈ 0.003 (verified by rule of three).
+    assert 0.002 < clopper_pearson_upper(6, 4000) < 0.004
+
+
 def test_clopper_pearson_upper_all_hits():
     assert clopper_pearson_upper(100, 100) == 1.0
 

@@ -126,6 +126,7 @@ def clopper_pearson_upper(k: int, n: int, alpha: float = 0.05) -> float:
     if k == 0:
         return 1 - alpha ** (1.0 / n)
     # Solve for p_upper such that P(X <= k | Binomial(n, p_upper)) = alpha.
+    # Note P(X <= k) is a *decreasing* function of p.
     lo, hi = (k / n), 1.0
     for _ in range(60):
         mid = (lo + hi) / 2.0
@@ -134,9 +135,9 @@ def clopper_pearson_upper(k: int, n: int, alpha: float = 0.05) -> float:
             for i in range(k + 1)
         )
         if p_le > alpha:
-            hi = mid
+            lo = mid  # need a larger p to push mass right / shrink the tail
         else:
-            lo = mid
+            hi = mid
     return (lo + hi) / 2.0
 
 
