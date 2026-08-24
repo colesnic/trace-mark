@@ -410,13 +410,16 @@ def _canonicalization(r: dict[str, Any]) -> str:
     rows = (r.get("canonicalization") or {}).get("canonicalization", [])
     if not rows:
         return "_no data_"
-    out = ["| mode | docs | clean match | lowercased match | clean detected | lower detected | dup-ID fraction |",
-           "|------|------|-------------|------------------|----------------|----------------|-----------------|"]
-    for x in rows:
+    header = "| mode | docs | clean | lowercased | clean det | lower det | dup-ID % |"
+    out = [
+        header,
+        "|------|------|-------|------------|-----------|-----------|----------|",
+    ]    for x in rows:
         out.append(
             f"| {x['mode']} | {x['documents']} | {_fmt(x['unedited_match_rate'])} | "
             f"{_fmt(x['lowercase_match_rate'])} | {_fmt(x['unedited_detected'])} | "
-            f"{_fmt(x['lowercase_detected'])} | {_fmt(x['collision_duplicate_fraction'] * 100, 1)}% |"
+            f"{_fmt(x['lowercase_detected'])} | "
+            f"{_fmt(x['collision_duplicate_fraction'] * 100, 1)}% |"
         )
     out.append("")
     out.append("If the case-insensitive mode preserves clean detection while raising "
