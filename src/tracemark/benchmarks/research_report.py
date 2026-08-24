@@ -414,7 +414,8 @@ def _canonicalization(r: dict[str, Any]) -> str:
     out = [
         header,
         "|------|------|-------|------------|-----------|-----------|----------|",
-    ]    for x in rows:
+    ]
+    for x in rows:
         out.append(
             f"| {x['mode']} | {x['documents']} | {_fmt(x['unedited_match_rate'])} | "
             f"{_fmt(x['lowercase_match_rate'])} | {_fmt(x['unedited_detected'])} | "
