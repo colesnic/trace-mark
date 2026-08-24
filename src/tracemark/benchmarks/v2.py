@@ -216,7 +216,10 @@ def benchmark_author_style_bias(
             continue
         decoded = [decode_document(d.text, policy) for d in docs]
         opps = sum(d.usable_opportunities for d in decoded)
-        rate_by_key: list[tuple[bytes, float]] = []
+        if opps < 5:
+            continue
+        # For each random key, count total matches across the author's docs.
+        scored: list[tuple[bytes, int, int]] = []
         for key in candidate_keys:
             matches = 0
             total = 0
@@ -225,28 +228,23 @@ def benchmark_author_style_bias(
                     total += 1
                     if expected_bit(key, opp.ident) == opp.observed_bit:
                         matches += 1
-            rate_by_key.append((key, matches / max(total, 1)))
-        best_key, max_rate = max(rate_by_key, key=lambda t: t[1])
-        mean_rate = statistics.mean(r for _k, r in rate_by_key)
-
-        # Combined evidence: sum the log-likelihood of all bits under best key.
-        combined = 0.0
-        for key, _r in rate_by_key:
-            if key != best_key:
-                continue
-            for d in decoded:
-                for opp in d.opportunities:
-                    if expected_bit(key, opp.ident) == opp.observed_bit:
-                        combined += 1.0 / max(opps, 1) * math.log10(2.0) * opps
+            scored.append((key, matches, total))
+        best_key, best_matches, best_total = max(scored, key=lambda t: t[1])
+        rates = [m / max(t, 1) for _k, m, t in scored]
+        max_rate = best_matches / max(best_total, 1)
+        # Adjusted binomial evidence for the best key over the candidate pool.
+        p = exact_binomial_tail(best_matches, best_total)
+        adjusted = min(1.0, p * max(len(candidate_keys), 1))
+        evidence = -math.log10(adjusted) if adjusted > 0 else float("inf")
         results.append(
             AuthorBiasResult(
                 corpus_author_id=author,
                 documents=len(docs),
                 opportunities=opps,
                 best_random_candidate=best_key.hex()[:8],
-                mean_match_rate=mean_rate,
+                mean_match_rate=statistics.mean(rates),
                 max_match_rate=max_rate,
-                combined_evidence=combined,
+                combined_evidence=evidence,
             )
         )
     return results
