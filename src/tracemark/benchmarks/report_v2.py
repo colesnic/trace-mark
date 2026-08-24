@@ -393,6 +393,60 @@ def run_human_machine() -> dict:
     return {"human_machine": rows}
 
 
+def run_latency() -> dict:
+    """Watermark/decode latency and candidate-scoring scaling at various sizes."""
+    import time as _time
+
+    from tracemark.watermark.detector import FingerprintCandidate, decode_document, score_candidates
+    from tracemark.watermark.engine import apply_watermark
+
+    docs = _sample(load_corpus("enron"), 800, seed=23)
+    text = " ".join(d.text for d in docs[:12])
+
+    def ms(fn, n=5):
+        t = []
+        for _ in range(n):
+            s = _time.perf_counter()
+            fn()
+            t.append((_time.perf_counter() - s) * 1000)
+        t.sort()
+        return t[len(t) // 2]
+
+    rows = []
+    rng = random.Random(4)
+    for words in [100, 500, 1000, 2000]:
+        token_list = text.split() * (max(1, words // max(len(text.split()), 1)) + 1)
+        wm_text = " ".join(token_list[:words])
+        wm_ms = ms(
+            lambda wm_text=wm_text: apply_watermark(
+                text=wm_text, fingerprint_key=ALICE.key, policy=POLICY
+            )
+        )
+        decoded = decode_document(wm_text, POLICY)
+        for n_cand in [1, 10, 100, 1000, 10000]:
+            cands = [
+                FingerprintCandidate("alice", None, ALICE.key),
+                *[
+                    FingerprintCandidate(f"d{i}", None, rng.randbytes(32))
+                    for i in range(n_cand - 1)
+                ],
+            ]
+            score_ms = ms(lambda cands=cands: score_candidates(decoded, cands))  # noqa: B023
+            decode_ms = ms(lambda wm_text=wm_text: decode_document(wm_text, POLICY), 3)
+            rows.append(
+                {
+                    "words": words,
+                    "opportunities": decoded.usable_opportunities,
+                    "candidates": n_cand,
+                    "watermark_ms": wm_ms,
+                    "decode_ms": decode_ms,
+                    "score_ms": score_ms,
+                }
+            )
+    write_rows_csv(RESULTS_V2 / "latency.csv", rows)
+    return {"latency": rows}
+
+
 def run_all(only: list[str] | None = None) -> dict:
     import json
 
@@ -436,8 +490,64 @@ _STEPS: list[tuple[str, Callable[[], dict]]] = [
     ("partial_copy", run_partial_copy),
     ("canonicalization", run_canonicalization),
     ("combined_attacks", run_combined_attacks),
-    ("human_machine", run_human_machine),
-]
+        ("human_machine", run_human_machine),
+        ("latency", run_latency),
+    ]
+
+
+def rebuild_from_csvs() -> None:
+    """Reconstruct all_results.json from the raw CSV/JSON artifacts.
+
+    Used when an interrupted run left the merged JSON in a bad state; every
+    CSV is authoritative.
+    """
+    import csv as _csv
+    import json as _json
+
+    def read_csv(name: str) -> list[dict]:
+        path = RESULTS_V2 / name
+        if not path.exists():
+            return []
+
+        def coerce(value: str):
+            try:
+                f = float(value)
+                if f.is_integer():
+                    return int(f)
+                return f
+            except (TypeError, ValueError):
+                return value
+
+        with open(path, encoding="utf-8") as fh:
+            rows = list(_csv.DictReader(fh))
+        return [{k: coerce(v) for k, v in row.items()} for row in rows]
+
+    results: dict = {
+        "corpus_stats": {"corpus_stats": read_csv("corpus_stats.csv")},
+        "length": {"length": read_csv("length_results.csv")},
+        "candidate_scale": {"candidate_scale": read_csv("candidate_scale.csv")},
+        "null_calibration": {"null_calibration": read_csv("null_calibration.csv")},
+        "false_positives": {"false_positives": read_csv("false_positives.csv")},
+        "author_bias": {"author_style": read_csv("author_style.csv")},
+        "ablation": {"ablation": read_csv("channel_ablation.csv")},
+        "grid": {"grid": read_csv("attribution_grid.csv")},
+        "partial_copy": {"partial_copy": read_csv("partial_copy.csv")},
+        "canonicalization": {"canonicalization": read_csv("canonicalization_modes.csv")},
+        "combined_attacks": {"combined_attacks": read_csv("combined_attacks.csv")},
+        "human_machine": {"human_machine": read_csv("human_machine_density.csv")},
+        "latency": {"latency": read_csv("latency.csv")},
+        "theoretical": {"theoretical": read_csv("theoretical_detection_limits.csv")},
+        "dependence": {"dependence": {}},
+    }
+    dep_path = RESULTS_V2 / "dependence.json"
+    if dep_path.exists():
+        results["dependence"]["dependence"] = _json.loads(dep_path.read_text(encoding="utf-8"))
+    coll = read_csv("opportunity_collisions.csv")
+    if coll:
+        results["collisions"] = {"collisions": {k: coll[0][k] for k in coll[0]}}
+    write_metrics_json(RESULTS_V2 / "all_results.json", results)
+    _write_report(results)
+    print("rebuilt all_results.json and report from CSVs")
 
 
 def render_existing_report() -> None:
@@ -456,7 +566,7 @@ def _dictify(obj):
     """Recursively convert dataclasses/lists/dicts to plain JSON-safe dicts."""
     from dataclasses import asdict, is_dataclass
 
-    if is_dataclass(obj):
+    if is_dataclass(obj) and not isinstance(obj, type):
         return {k: _dictify(v) for k, v in asdict(obj).items()}
     if isinstance(obj, dict):
         return {k: _dictify(v) for k, v in obj.items()}
@@ -480,9 +590,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run TraceMark V2 benchmarks")
     parser.add_argument("--only", default=None, help="comma-separated step names")
     parser.add_argument("--report", action="store_true", help="only re-render the report")
+    parser.add_argument("--rebuild", action="store_true", help="rebuild all_results.json from CSVs")
     args = parser.parse_args()
 
-    if args.report:
+    if args.rebuild:
+        rebuild_from_csvs()
+    elif args.report:
         render_existing_report()
     else:
         only = args.only.split(",") if args.only else None

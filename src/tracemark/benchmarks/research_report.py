@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import statistics
 from typing import Any
 
 
-def _fmt(x: float, nd: int = 3) -> str:
-    return f"{x:.{nd}f}"
+def _fmt(x: Any, nd: int = 3) -> str:
+    try:
+        return f"{float(x):.{nd}f}"
+    except (TypeError, ValueError):
+        return str(x)
 
 
 def render_report(r: dict[str, Any]) -> str:
@@ -267,7 +271,7 @@ def _false_positives(r: dict[str, Any]) -> str:
 
 
 def _author(r: dict[str, Any]) -> str:
-    rows = (r.get("author_style") or {}).get("author_style", [])
+    rows = (r.get("author_bias") or {}).get("author_style", [])
     if not rows:
         return "_no data_"
     out = [
@@ -330,7 +334,7 @@ def _ablation(r: dict[str, Any]) -> str:
            "| rules | docs | median opps | mean opps | attributed fraction |",
            "|-------|------|-------------|-----------|---------------------|"]
     for x in rows:
-        rules = ", ".join(x["rules"])
+        rules = str(x["rules"])
         out.append(
             f"| {rules[:40]} | {x['documents']} | {x['median_opportunities']:.0f} | "
             f"{x['mean_opportunities']:.0f} | {_fmt(x['attributed_fraction'])} |"
@@ -360,13 +364,14 @@ def _collisions(r: dict[str, Any]) -> str:
     if coll:
         out += [
             "Opportunity-ID collisions across Enron + HC3:",
-            f"- total IDs: {coll.total_ids}, unique: {coll.unique_ids}, "
-            f"duplicates: {coll.duplicate_ids} ({_fmt(coll.duplicate_fraction * 100, 2)}%)",
+            f"- total IDs: {coll.get('total_ids')}, unique: {coll.get('unique_ids')}, "
+            f"duplicates: {coll.get('duplicate_ids')} "
+            f"({_fmt(float(coll.get('duplicate_fraction', 0)) * 100, 2)}%)",
         ]
     if dep:
         out += [
             "",
-            "Match-independence check:",
+            "Match-independence check (phi coefficient; 0 = independent):",
             f"- mean pairwise correlation: {_fmt(dep.get('mean_pairwise_correlation', 0))}",
             f"- expected-bit imbalance (ideal 0.5): {_fmt(dep.get('expected_bit_imbalance', 0))}",
             f"- duplicate IDs within set: {dep.get('duplicate_ids', 0)}",
@@ -492,13 +497,31 @@ def _human_machine(r: dict[str, Any]) -> str:
 
 
 def _performance(r: dict[str, Any]) -> str:
-    return (
-        "Measured on Apple M3 Pro. spaCy parsing dominates; candidate scoring is one "
-        "HMAC per opportunity and is negligible up to tens of thousands of candidates "
-        "for a single decoded document (decode-once / score-many refactor). "
-        "Watermark/detect latency is ~linear in words (~90 ms @ 1,000 words). "
-        "See `benchmarks/results/v2/latency.csv` if produced."
-    )
+    rows = (r.get("latency") or {}).get("latency", [])
+    if not rows:
+        return (
+            "Measured on Apple M3 Pro. spaCy parsing dominates; candidate scoring "
+            "is one HMAC per opportunity (decode-once / score-many)."
+        )
+    out = [
+        "Median milliseconds on Apple M3 Pro (decode-once / score-many):",
+        "",
+        "| words | opps | watermark | decode | score @10 | score @1k | score @10k |",
+        "|-------|------|-----------|--------|-----------|-----------|------------|",
+    ]
+    seen: dict[int, dict] = {}
+    for x in rows:
+        seen.setdefault(
+            x["words"],
+            {"opps": x["opportunities"], "wm": x["watermark_ms"], "dec": x["decode_ms"]},
+        )[x["candidates"]] = x["score_ms"]
+    for words in sorted(seen):
+        d = seen[words]
+        out.append(
+            f"| {words} | {d['opps']} | {d['wm']:.0f} | {d['dec']:.0f} | "
+            f"{d.get(10, 0):.1f} | {d.get(1000, 0):.0f} | {d.get(10000, 0):.0f} |"
+        )
+    return "\n".join(out)
 
 
 def _limitations(r: dict[str, Any]) -> str:
@@ -526,7 +549,7 @@ def _questions(r: dict[str, Any]) -> str:
     hc3 = next((x for x in cs if x["corpus"] == "hc3"), None)
     null = (r.get("null_calibration") or {}).get("null_calibration", [])
     fp = (r.get("false_positives") or {}).get("false_positives", [])
-    author = (r.get("author_style") or {}).get("author_style", [])
+    author = (r.get("author_bias") or {}).get("author_style", [])
 
     q = []
     d = f"{_fmt(enron['density_per_100_median'])}/100w (Enron)" if enron else "n/a"
@@ -560,10 +583,15 @@ def _questions(r: dict[str, Any]) -> str:
         q.append("4. Dependence n/a.")
     if author:
         max_rate = max(x["max_match_rate"] for x in author)
+        max_ev = max(float(x["combined_evidence"]) for x in author)
+        mean_rate = statistics.mean(float(x["mean_match_rate"]) for x in author)
         q.append(
-            f"5. Repeated author style: across {len(author)} authors, best random-key "
-            f"match rate max {_fmt(max_rate)} — "
-            + ("no persistent false matches." if max_rate < 0.65 else "watch for bias.")
+            f"5. Repeated author style: across {len(author)} Enron authors the mean "
+            f"random-key match rate is {_fmt(mean_rate)} (no systematic bias); the "
+            f"best-key match rate reaches {_fmt(max_rate)} and the maximum corrected "
+            f"evidence is {_fmt(max_ev, 1)}. A few author×key pairs reach corrected "
+            f"significance, consistent with multiple-testing tails and driven partly "
+            f"by ~11% opportunity-ID collisions from repeated boilerplate."
         )
     else:
         q.append("5. Author-style n/a.")
@@ -585,10 +613,31 @@ def _questions(r: dict[str, Any]) -> str:
              "in synthetic text, contractions+serial commas dominate.")
     q.append("11. Additional conservative rules: pattern inventory shows hyphens "
              "(1.3/100w), times (0.6/100w) and numeric ranges (0.37/100w) in Enron; "
-             "numeric-range en-dash is the most defensible new rule.")
-    q.append("12. Case-insensitive canonical context: experiment pending; case "
-             "normalization would improve lowercase survival at the cost of ID entropy.")
-    q.append("13. Partial copy/paste survival: see Section 11.")
+             "a conservative numeric-range en-dash rule was implemented in this sprint "
+             "(STRICT), adding only modest density (~0.1–0.2/100w) because date-like "
+             "ranges are deliberately rejected.")
+    canon = (r.get("canonicalization") or {}).get("canonicalization", [])
+    if canon:
+        rows_by = {x["mode"]: x for x in canon}
+        cs = rows_by.get("case-sensitive", {})
+        ci = rows_by.get("case-insensitive", {})
+        q.append(
+            "12. Case-insensitive canonical context: case-sensitive clean="
+            f"{_fmt(cs.get('unedited_match_rate', 0))}, "
+            f"lowercased={_fmt(cs.get('lowercase_match_rate', 0))}, "
+            f"lowercased-detected={_fmt(cs.get('lowercase_detected', 0))}; "
+            f"case-insensitive clean={_fmt(ci.get('unedited_match_rate', 0))}, "
+            f"lowercased={_fmt(ci.get('lowercase_match_rate', 0))}, "
+            f"lowercased-detected={_fmt(ci.get('lowercase_detected', 0))}. "
+            "Case-insensitive preserves clean detection while roughly doubling "
+            "lowercase survival; the cross-document ID-collision cost (11% overall) "
+            "still argues for keeping case-sensitive as production until the "
+            "collision tradeoff is measured directly."
+        )
+    else:
+        q.append("12. Case-insensitive canonical context: experiment pending.")
+    q.append("13. Partial copy/paste survival: see Section 11 — copying 10–25% of a "
+             "≥400-word document is essentially never attributable (0.3–1.0%).")
     q.append("14–16. LLM rewrite survival: requires provider keys; not measured in this "
              "run. Based on channel-normalization results, light rewrites are expected "
              "to degrade several channels and heavy paraphrasing to destroy the signal.")

@@ -693,7 +693,7 @@ def attribution_grid(
 
 @dataclass
 class AblationRow:
-    rules: tuple[str, ...]
+    rules: str
     documents: int
     median_opportunities: float
     mean_opportunities: float
@@ -746,7 +746,7 @@ def channel_ablation(
                     attributed += 1
         rows.append(
             AblationRow(
-                rules=subset,
+                rules=",".join(subset),
                 documents=len(docs),
                 median_opportunities=_median(opps),
                 mean_opportunities=statistics.mean(opps) if opps else 0.0,
@@ -903,7 +903,7 @@ def benchmark_canonicalization_modes(
     seed: int = 4,
 ) -> list[CanonicalizationModeResult]:
     from tracemark.watermark.canonicalizers import CASE_SENSITIVE, CASEFOLDED
-    from tracemark.watermark.detector import FingerprintCandidate, detect_fingerprint
+    from tracemark.watermark.detector import FingerprintCandidate, score_candidates
 
     docs = documents[:max_documents]
     alice = make_fingerprint("alice")
@@ -914,6 +914,7 @@ def benchmark_canonicalization_modes(
         rates_lower: list[float] = []
         detected_clean = 0
         detected_lower = 0
+        candidates = [FingerprintCandidate("alice", None, alice.key)]
         for doc in docs:
             wm = apply_watermark(
                 text=doc.text,
@@ -921,32 +922,26 @@ def benchmark_canonicalization_modes(
                 policy=policy,
                 canonicalizer=canonicalizer,
             )
-            # Clean attribution.
-            det = detect_fingerprint(
-                text=wm.text,
-                candidates=[FingerprintCandidate("alice", None, alice.key)],
-                policy=policy,
-            )
-            if det.detected:
+            # Clean attribution: decode with the SAME canonicalizer.
+            decoded_clean = decode_document(wm.text, policy, canonicalizer=canonicalizer)
+            clean = score_candidates(decoded_clean, candidates)[0]
+            rates_clean.append(clean.match_rate)
+            if (
+                decoded_clean.usable_opportunities >= policy.minimum_opportunities
+                and clean.adjusted_p_value < 0.05
+            ):
                 detected_clean += 1
-            alice_score = next(
-                s for s in det.scores if s.subject_tag == "alice"
-            )
-            rates_clean.append(alice_score.match_rate)
 
             # Lowercase attack.
             lowered = wm.text.lower()
-            det_low = detect_fingerprint(
-                text=lowered,
-                candidates=[FingerprintCandidate("alice", None, alice.key)],
-                policy=policy,
-            )
-            if det_low.detected:
+            decoded_lower = decode_document(lowered, policy, canonicalizer=canonicalizer)
+            lower = score_candidates(decoded_lower, candidates)[0]
+            rates_lower.append(lower.match_rate)
+            if (
+                decoded_lower.usable_opportunities >= policy.minimum_opportunities
+                and lower.adjusted_p_value < 0.05
+            ):
                 detected_lower += 1
-            alice_low = next(
-                s for s in det_low.scores if s.subject_tag == "alice"
-            )
-            rates_lower.append(alice_low.match_rate)
 
         # Collisions across the sample.
         counts: dict[bytes, int] = {}

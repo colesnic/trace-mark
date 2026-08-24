@@ -272,7 +272,23 @@ TRACEMARK_DATABASE_URL=postgresql+asyncpg://tracemark:tracemark@localhost:5432/t
 - `docs/phase4-report.md` — the core fingerprinting experiment and results
 - `docs/engineering-report.md` — full engineering report: risks, limitations,
   benchmarks, results, and the rationale behind every architectural decision
+- `docs/research-v2-report.md` — V2 research sprint: real-corpus validation
+  (Enron/HC3/Newsgroups), statistical null calibration, candidate-scale and
+  length thresholds, commercial viability assessment
 - `docs/api.md` — full API reference
+
+## V2 research (2026)
+
+The V2 research sprint measured TraceMark against 415k+ real emails, 85k HC3
+QA answers and 17k newsgroup posts. Headline findings are in
+`docs/research-v2-report.md`; raw machine-readable results live in
+`benchmarks/results/v2/`. Re-run everything with:
+
+```bash
+uv run python -m tracemark.benchmarks.scripts.fetch_corpora --corpus enron
+uv run python -m tracemark.benchmarks.scripts.prepare_corpora --all
+uv run python -m tracemark.benchmarks.report_v2
+```
 
 ## License
 
